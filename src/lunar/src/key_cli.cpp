@@ -14,10 +14,16 @@ std::string FlagValue(const std::vector<std::string>& Args, const std::string& F
 }
 
 int KeyGenerate(const std::vector<std::string>& Args) {
-    std::string Kind = FlagValue(Args, "--kind");
-    std::string Out = FlagValue(Args, "--out");
-    if (Out.empty()) {
-        std::cerr << "Usage: lunar key generate --kind <private|public> --out <path>\n";
+    std::string PrivOut = FlagValue(Args, "--private");
+    std::string PubOut = FlagValue(Args, "--public");
+    std::string OldKind = FlagValue(Args, "--kind");
+    std::string OldOut = FlagValue(Args, "--out");
+    if (!OldOut.empty() && PrivOut.empty() && PubOut.empty()) {
+        if (OldKind == "public") PubOut = OldOut;
+        else PrivOut = OldOut;
+    }
+    if (PrivOut.empty() && PubOut.empty()) {
+        std::cerr << "Usage: lunar key generate --private <path> --public <path>\n";
         return 1;
     }
     auto Pair = Crypto::Generate();
@@ -25,13 +31,19 @@ int KeyGenerate(const std::vector<std::string>& Args) {
         std::cerr << "Key generation failed\n";
         return 1;
     }
-    std::string Value = Kind == "public" ? Pair->PublicKey : Pair->PrivateKey;
-    if (!WriteKeyFile(Out, Kind.empty() ? "private" : Kind, Value)) {
-        std::cerr << "Cannot write " << Out << "\n";
-        return 1;
+    if (!PrivOut.empty()) {
+        if (!WriteKeyFile(PrivOut, "private", Pair->PrivateKey)) {
+            std::cerr << "Cannot write " << PrivOut << "\n";
+            return 1;
+        }
+    }
+    if (!PubOut.empty()) {
+        if (!WriteKeyFile(PubOut, "public", Pair->PublicKey)) {
+            std::cerr << "Cannot write " << PubOut << "\n";
+            return 1;
+        }
     }
     std::cout << "KeyId: " << Pair->KeyId << "\n";
-    std::cout << "Written: " << Out << "\n";
     return 0;
 }
 
