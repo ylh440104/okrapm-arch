@@ -1,0 +1,48 @@
+name: build-and-test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x86_64
+            cc: gcc
+          - name: aarch64
+            cc: aarch64-linux-gnu-gcc
+    steps:
+      - uses: actions/checkout@v4
+      - name: install toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake g++ gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+      - name: configure
+        run: |
+          if [ "${{ matrix.name }}" = "aarch64" ]; then
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+          else
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          fi
+      - name: build
+        run: cmake --build build -j4
+      - name: unit tests
+        if: matrix.name == 'x86_64'
+        run: ctest --test-dir build --output-on-failure
+      - name: platform checks
+        if: matrix.name == 'x86_64'
+        run: |
+          set -x
+          LUNAR_DATA_DIR=/tmp/lunar ./build/src/lunar/lunar --arch aarch64 info gnu.gcc || true
+          ./build/src/lunar/lunar --help | head -20
+      - name: architecture gate test
+        if: matrix.name == 'x86_64'
+        run: bash scripts/arch-gate-test.sh
