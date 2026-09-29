@@ -1,5 +1,8 @@
-find_package(OpenSSL REQUIRED)
+option(OKRAPM_WITH_CRYPTO "Enable Ed25519 signing" ON)
 
+if(OKRAPM_WITH_CRYPTO)
+    find_package(OpenSSL REQUIRED)
+endif()
 
 add_library(okrapmlib
     src/version.cpp
