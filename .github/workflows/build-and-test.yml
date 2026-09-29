@@ -22,13 +22,14 @@ jobs:
       - name: install toolchain
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq cmake g++ gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt-get install -y -qq cmake g++ libssl-dev gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev:arm64 pkg-config
       - name: configure
         run: |
           if [ "${{ matrix.name }}" = "aarch64" ]; then
             cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+              -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+              -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu
           else
             cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
           fi
@@ -46,3 +47,6 @@ jobs:
       - name: architecture gate test
         if: matrix.name == 'x86_64'
         run: bash scripts/arch-gate-test.sh
+      - name: signing test
+        if: matrix.name == 'x86_64'
+        run: bash scripts/sign-test.sh

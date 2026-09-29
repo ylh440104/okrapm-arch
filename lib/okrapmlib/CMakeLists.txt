@@ -1,6 +1,10 @@
+find_package(OpenSSL REQUIRED)
+
+
 add_library(okrapmlib
     src/version.cpp
     src/platform.cpp
+    src/crypto.cpp
     src/file_index.cpp
     src/object.cpp
     src/object_ref.cpp
@@ -25,6 +29,7 @@ target_include_directories(okrapmlib
 target_link_libraries(okrapmlib
     PUBLIC
         ${CMAKE_DL_LIBS}
+        OpenSSL::Crypto
 )
 
 target_compile_features(okrapmlib PUBLIC cxx_std_17)
