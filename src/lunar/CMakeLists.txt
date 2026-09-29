@@ -1,5 +1,6 @@
 add_executable(lunar
     src/main.cpp
+    src/key_cli.cpp
 )
 
 target_link_libraries(lunar

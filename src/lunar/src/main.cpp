@@ -9,6 +9,7 @@
 #include "okrapmlib/artifact_engine.h"
 #include "okrapmlib/pipeline_engine.h"
 #include "okrapmlib/crypto.h"
+#include "key_cli.h"
 
 using namespace okrapm;
 
@@ -21,7 +22,7 @@ void print_banner() {
               << "\\____//_/ |_|/_/  |_|/_/ |_|/_/    /_/  /_/   \n"
               << "\033[0m\n"
               << "Lunar Package & System State Manager v1.0.0 (Okra Rolling Linux)\n\n";
-}
+            }
 
 void print_help() {
     print_banner();
@@ -91,7 +92,7 @@ void print_help() {
               << "  ext list                  List installed extensions and plugins\n"
               << "  ext load <path.so>        Dynamically load a shared library plugin\n"
               << "  ext run <name> [args...]  Execute an extension operation\n\n";
-}
+            }
 
 static std::vector<std::string> expand_stdin_targets(const std::vector<std::string>& targets) {
     std::vector<std::string> result;
@@ -110,7 +111,7 @@ static std::vector<std::string> expand_stdin_targets(const std::vector<std::stri
         }
     }
     return result;
-}
+            }
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -613,256 +614,13 @@ int main(int argc, char* argv[]) {
         std::cerr << missing.size() << " missing file(s)\n";
         return 1;
     }
-    // ---- Members (Group expand) ----
     if (command == "key") {
-        std::string sub = raw_args.size() > 1 ? raw_args[1] : "";
-        if (sub == "generate") {
-            std::string kind;
-            std::string out;
-            for (size_t i = 2; i < raw_args.size(); ++i) {
-                if (raw_args[i] == "--kind" && i + 1 < raw_args.size()) kind = raw_args[++i];
-                else if (raw_args[i] == "--out" && i + 1 < raw_args.size()) out = raw_args[++i];
-            }
-            if (out.empty()) {
-                std::cerr << "Usage: lunar key generate --kind <private|public> --out <path>
-";
-                return 1;
-            }
-            auto pair = Crypto::Generate();
-            if (!pair) {
-                std::cerr << "Key generation failed
-";
-                return 1;
-            }
-            std::string value = kind == "public" ? pair->PublicKey : pair->PrivateKey;
-            if (!WriteKeyFile(out, kind.empty() ? "private" : kind, value)) {
-                std::cerr << "Cannot write " << out << "
-";
-                return 1;
-            }
-            std::cout << "KeyId: " << pair->KeyId << "
-";
-            std::cout << "Written: " << out << "
-";
-            return 0;
-        }
-        if (sub == "certify") {
-            std::string master;
-            std::string developer;
-            std::string name;
-            std::string out;
-            for (size_t i = 2; i < raw_args.size(); ++i) {
-                if (raw_args[i] == "--master" && i + 1 < raw_args.size()) master = raw_args[++i];
-                else if (raw_args[i] == "--developer" && i + 1 < raw_args.size()) developer = raw_args[++i];
-                else if (raw_args[i] == "--name" && i + 1 < raw_args.size()) name = raw_args[++i];
-                else if (raw_args[i] == "--out" && i + 1 < raw_args.size()) out = raw_args[++i];
-            }
-            if (master.empty() || developer.empty() || out.empty()) {
-                std::cerr << "Usage: lunar key certify --master <key> --developer <pub> --name <n> --out <cert>
-";
-                return 1;
-            }
-            auto masterKey = ReadKeyFile(master, "private");
-            auto devKey = ReadKeyFile(developer, "public");
-            if (!masterKey || !devKey) {
-                std::cerr << "Cannot read key files
-";
-                return 1;
-            }
-            KeyRecord record;
-            record.PublicKey = *devKey;
-            record.KeyId = Crypto::KeyIdFromPublic(*devKey);
-            record.Name = name;
-            record.Issued = Crypto::NowStamp();
-            record.Expires = "";
-            KeyRecord signedRecord;
-            if (!CertifyDeveloper(*masterKey, Crypto::KeyIdFromPublic(*devKey), record, signedRecord)) {
-                std::cerr << "Certification failed
-";
-                return 1;
-            }
-            signedRecord.CertifierId = "";
-            if (!WriteCertFile(out, signedRecord)) {
-                std::cerr << "Cannot write " << out << "
-";
-                return 1;
-            }
-            std::cout << "Certified: " << signedRecord.KeyId << "
-";
-            return 0;
-        }
-        if (sub == "sign") {
-            std::string key;
-            std::string file;
-            std::string out;
-            for (size_t i = 2; i < raw_args.size(); ++i) {
-                if (raw_args[i] == "--key" && i + 1 < raw_args.size()) key = raw_args[++i];
-                else if (raw_args[i] == "--file" && i + 1 < raw_args.size()) file = raw_args[++i];
-                else if (raw_args[i] == "--out" && i + 1 < raw_args.size()) out = raw_args[++i];
-            }
-            if (key.empty() || file.empty() || out.empty()) {
-                std::cerr << "Usage: lunar key sign --key <priv> --file <f> --out <sig>
-";
-                return 1;
-            }
-            auto privateKey = ReadKeyFile(key, "private");
-            if (!privateKey) {
-                std::cerr << "Cannot read " << key << "
-";
-                return 1;
-            }
-            SignatureRecord record;
-            if (!SignFile(file, *privateKey, "", record)) {
-                std::cerr << "Signing failed
-";
-                return 1;
-            }
-            if (!WriteSignatureFile(out, record)) {
-                std::cerr << "Cannot write " << out << "
-";
-                return 1;
-            }
-            std::cout << "Signed: " << file << "
-";
-            std::cout << "sha256: " << record.Sha256 << "
-";
-            return 0;
-        }
-        if (sub == "verify") {
-            std::string keyring;
-            std::string file;
-            std::string sig;
-            for (size_t i = 2; i < raw_args.size(); ++i) {
-                if (raw_args[i] == "--keyring" && i + 1 < raw_args.size()) keyring = raw_args[++i];
-                else if (raw_args[i] == "--file" && i + 1 < raw_args.size()) file = raw_args[++i];
-                else if (raw_args[i] == "--sig" && i + 1 < raw_args.size()) sig = raw_args[++i];
-            }
-            if (keyring.empty() || file.empty() || sig.empty()) {
-                std::cerr << "Usage: lunar key verify --keyring <k> --file <f> --sig <s>
-";
-                return 1;
-            }
-            Keyring ring;
-            ring.load(keyring);
-            auto record = ReadSignatureFile(sig);
-            if (!record) {
-                std::cerr << "Cannot read signature
-";
-                return 1;
-            }
-            bool accepted = false;
-            for (const auto& candidate : ring.all()) {
-                if (VerifyFileSignature(file, *record, candidate.PublicKey)) {
-                    std::cout << ":: signature valid, signer " << candidate.Name
-                              << " (" << candidate.Role << ")" << "
-";
-                    accepted = true;
-                    break;
-                }
-            }
-            if (!accepted) {
-                std::cerr << "Signature verification failed
-";
-                return 1;
-            }
-            return 0;
-        }
-        if (sub == "id") {
-            std::string key;
-            for (size_t i = 2; i < raw_args.size(); ++i) {
-                if (raw_args[i] == "--key" && i + 1 < raw_args.size()) key = raw_args[++i];
-            }
-            if (key.empty()) {
-                std::cerr << "Usage: lunar key id --key <path>\n";
-                return 1;
-            }
-            auto value = ReadKeyFile(key, "");
-            if (!value) {
-                std::cerr << "Cannot read " << key << "\n";
-                return 1;
-            }
-            std::cout << Crypto::KeyIdFromPublic(*value) << "\n";
-            return 0;
-        }
-        std::cerr << "Usage: lunar key <generate|id|certify|sign|verify>
-";
-        return 1;
+        return okrapm::RunKeyCommand(raw_args);
     }
     if (command == "keyring") {
-        std::string sub = raw_args.size() > 1 ? raw_args[1] : "";
-        std::string path;
-        for (size_t i = 2; i < raw_args.size(); ++i) {
-            if (raw_args[i] == "--keyring" && i + 1 < raw_args.size()) path = raw_args[++i];
-        }
-        if (path.empty()) {
-            std::cerr << "Usage: lunar keyring <list|add|verify> --keyring <path>
-";
-            return 1;
-        }
-        Keyring ring;
-        ring.load(path);
-        if (sub == "list") {
-            if (ring.empty()) {
-                std::cout << "Keyring is empty
-";
-                return 0;
-            }
-            for (const auto& record : ring.all()) {
-                std::cout << record.KeyId << "  " << record.Role << "  " << record.Name
-                          << "  issued " << record.Issued << "
-";
-            }
-            return 0;
-        }
-        if (sub == "add") {
-            std::string cert;
-            for (size_t i = 2; i < raw_args.size(); ++i) {
-                if (raw_args[i] == "--cert" && i + 1 < raw_args.size()) cert = raw_args[++i];
-            }
-            if (cert.empty()) {
-                std::cerr << "Usage: lunar keyring add --keyring <k> --cert <c>
-";
-                return 1;
-            }
-            auto record = ReadCertFile(cert);
-            if (!record) {
-                std::cerr << "Cannot read certificate
-";
-                return 1;
-            }
-            auto masters = ring.masters();
-            if (record.Role == "master") {
-                ring.add(*record);
-            } else {
-                bool certified = false;
-                for (const auto& id : masters) {
-                    auto masterRecord = ring.find(id);
-                    if (!masterRecord) continue;
-                    if (VerifyCertification(*record, masterRecord->PublicKey)) {
-                        certified = true;
-                        break;
-                    }
-                }
-                if (!certified) {
-                    std::cerr << "Certificate is not signed by any known master key
-";
-                    return 1;
-                }
-                ring.add(*record);
-            }
-            if (!ring.save(path)) {
-                std::cerr << "Cannot write " << path << "
-";
-                return 1;
-            }
-            std::cout << "Added " << record->KeyId << " to " << path << "
-";
-            return 0;
-        }
-        std::cerr << "Usage: lunar keyring <list|add> --keyring <path>
-";
-        return 1;
+        return okrapm::RunKeyringCommand(raw_args);
     }
+    // ---- Members (Group expand) ----
     if (command == "members") {
         if (raw_args.size() < 2) {
             std::cerr << "Error: Group ref required (e.g. #kde.kde-desktop)\n";
@@ -1071,4 +829,4 @@ int main(int argc, char* argv[]) {
 
     std::cerr << "Unknown command: " << command << ". Run 'lunar --help' for usage.\n";
     return 1;
-}
+            }
