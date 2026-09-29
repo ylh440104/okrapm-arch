@@ -21,8 +21,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: install toolchain
         run: |
+          sudo dpkg --add-architecture arm64
+          sudo sed -i 's|^deb http://archive.ubuntu.com/ubuntu/|deb [arch=amd64] http://archive.ubuntu.com/ubuntu/|' /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null || true
           sudo apt-get update -qq
-          sudo apt-get install -y -qq cmake g++ libssl-dev gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev:arm64 pkg-config
+          sudo apt-get install -y -qq cmake g++ libssl-dev gcc-aarch64-linux-gnu g++-aarch64-linux-gnu pkg-config
       - name: configure
         run: |
           if [ "${{ matrix.name }}" = "aarch64" ]; then
