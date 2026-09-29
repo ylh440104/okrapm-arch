@@ -438,7 +438,10 @@ bool CertifyDeveloper(const std::string& MasterPrivate,
     Signed = Developer;
     Signed.Role = "developer";
     Signed.CertifierId = MasterId;
-    auto Bytes = CanonicalCertBytes(Signed);
+    KeyRecord ForSigning = Signed;
+    ForSigning.CertifierId = "";
+    ForSigning.Signature = "";
+    auto Bytes = CanonicalCertBytes(ForSigning);
     std::vector<unsigned char> Message(Bytes.begin(), Bytes.end());
     auto Signature = Crypto::Sign(MasterPrivate, Message);
     if (!Signature) return false;
@@ -449,7 +452,8 @@ bool CertifyDeveloper(const std::string& MasterPrivate,
 bool VerifyCertification(const KeyRecord& Record, const std::string& MasterPublic) {
     if (Record.Signature.empty()) return false;
     KeyRecord Copy = Record;
-    Copy.Signature.clear();
+    Copy.CertifierId = "";
+    Copy.Signature = "";
     auto Bytes = CanonicalCertBytes(Copy);
     std::vector<unsigned char> Message(Bytes.begin(), Bytes.end());
     return Crypto::Verify(MasterPublic, Message, Record.Signature);
