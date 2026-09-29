@@ -1,4 +1,25 @@
 #include "okrapmlib/crypto.h"
+
+#ifndef OKRAPM_WITH_CRYPTO
+#define OKRAPM_WITH_CRYPTO 1
+#endif
+
+#if !OKRAPM_WITH_CRYPTO
+
+namespace okrapm {
+std::string Crypto::Base64Encode(const std::vector<unsigned char>&) { return {}; }
+std::optional<std::vector<unsigned char>> Crypto::Base64Decode(const std::string&) { return std::nullopt; }
+std::string Crypto::Sha256Hex(const std::vector<unsigned char>&) { return {}; }
+std::string Crypto::Sha256File(const std::string&) { return {}; }
+std::string Crypto::NowStamp() { return {}; }
+std::optional<KeyPair> Crypto::Generate() { return std::nullopt; }
+std::optional<std::string> Crypto::Sign(const std::string&, const std::vector<unsigned char>&) { return std::nullopt; }
+bool Crypto::Verify(const std::string&, const std::vector<unsigned char>&, const std::string&) { return false; }
+std::string Crypto::KeyIdFromPublic(const std::string&) { return {}; }
+}
+
+#else
+
 #include <algorithm>
 #include <cstdio>
 #include <ctime>
@@ -460,3 +481,5 @@ bool VerifyFileSignature(const std::string& Path, const SignatureRecord& Record,
 }
 
 }
+
+#endif

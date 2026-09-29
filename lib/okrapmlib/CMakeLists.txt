@@ -26,10 +26,17 @@ target_include_directories(okrapmlib
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(okrapmlib
-    PUBLIC
-        ${CMAKE_DL_LIBS}
-        OpenSSL::Crypto
-)
+if(OKRAPM_WITH_CRYPTO)
+    target_link_libraries(okrapmlib
+        PUBLIC
+            ${CMAKE_DL_LIBS}
+            OpenSSL::Crypto
+    )
+else()
+    target_link_libraries(okrapmlib
+        PUBLIC
+            ${CMAKE_DL_LIBS}
+    )
+endif()
 
 target_compile_features(okrapmlib PUBLIC cxx_std_17)
