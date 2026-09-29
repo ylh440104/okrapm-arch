@@ -74,12 +74,13 @@ std::string Crypto::Base64Encode(const std::vector<unsigned char>& Data) {
         Out += Base64Chars[Triple & 0x3F];
         Index += 3;
     }
-    if (Index + 1 == Data.size()) {
+    size_t Remainder = Data.size() - Index;
+    if (Remainder == 1) {
         unsigned int Triple = Data[Index] << 16;
         Out += Base64Chars[(Triple >> 18) & 0x3F];
         Out += Base64Chars[(Triple >> 12) & 0x3F];
         Out += "==";
-    } else if (Index + 2 == Data.size()) {
+    } else if (Remainder == 2) {
         unsigned int Triple = (Data[Index] << 16) | (Data[Index + 1] << 8);
         Out += Base64Chars[(Triple >> 18) & 0x3F];
         Out += Base64Chars[(Triple >> 12) & 0x3F];
