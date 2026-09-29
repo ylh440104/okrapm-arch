@@ -30,7 +30,8 @@ bool verify_sidecar(const std::string& path) {
     return !expected.empty() && expected == shell_sha256(path);
 }
 
-bool copy_payload(const fs::path& payload, const fs::path& root, std::vector<fs::path>& created) {
+bool copy_payload(const fs::path& payload, const fs::path& root, std::vector<fs::path>& created,
+                  std::vector<std::string>* landed = nullptr) {
     std::error_code ec;
     fs::recursive_directory_iterator it(
         payload, fs::directory_options::skip_permission_denied, ec);
@@ -66,6 +67,7 @@ bool copy_payload(const fs::path& payload, const fs::path& root, std::vector<fs:
         }
         if (ec) return false;
         created.push_back(dest);
+        if (landed) landed->push_back("/" + rel.generic_string());
     }
     return true;
 }
@@ -606,6 +608,7 @@ bool LunarCore::commit_transaction(Transaction& txn) {
                     }
                     auto staging = fs::temp_directory_path() / ("lunar-install-" + std::to_string(txn.id()));
                     std::vector<fs::path> created;
+                    std::vector<std::string> landed;
                     bool extracted = ArtifactExtractor::extract(local_path, staging.string());
                     fs::path payload = fs::exists(staging / "files") ? staging / "files" : staging / "rootfs";
                     const char* configured_root = std::getenv("LUNAR_INSTALL_ROOT");
@@ -614,7 +617,7 @@ bool LunarCore::commit_transaction(Transaction& txn) {
                         (fs::status(install_root).permissions() & fs::perms::owner_write) == fs::perms::none) {
                         install_root = data_dir_ + "/rootfs";
                     }
-                    if (!extracted || !fs::exists(payload) || !copy_payload(payload, install_root, created)) {
+                    if (!extracted || !fs::exists(payload) || !copy_payload(payload, install_root, created, &landed)) {
                         rollback_files(created);
                         for (const auto& prior : installed_artifacts) rollback_files(prior);
                         fs::remove_all(staging);
@@ -623,6 +626,9 @@ bool LunarCore::commit_transaction(Transaction& txn) {
                         return false;
                     }
                     fs::remove_all(staging);
+                    file_index_.record(op.target().ns(), op.target().name(),
+                                       op.target().version().to_string(), landed);
+                    file_index_.save(data_dir_ + "/files.db");
                     installed_artifacts.push_back(std::move(created));
                 } else if (op.target().repository() == "local-artifact") {
                     // 本地 artifact 的归档路径由 install() 传入并保留在目标对象中
@@ -637,6 +643,7 @@ bool LunarCore::commit_transaction(Transaction& txn) {
                         }
                         auto staging = fs::temp_directory_path() / ("lunar-install-" + std::to_string(txn.id()) + "-" + op.target().name());
                         std::vector<fs::path> created;
+                        std::vector<std::string> landed;
                         bool extracted = ArtifactExtractor::extract(*art_path, staging.string());
                         fs::path payload = fs::exists(staging / "files") ? staging / "files" : staging / "rootfs";
                         const char* configured_root = std::getenv("LUNAR_INSTALL_ROOT");
@@ -645,7 +652,7 @@ bool LunarCore::commit_transaction(Transaction& txn) {
                             (fs::status(install_root).permissions() & fs::perms::owner_write) == fs::perms::none) {
                             install_root = data_dir_ + "/rootfs";
                         }
-                        if (!extracted || !fs::exists(payload) || !copy_payload(payload, install_root, created)) {
+                        if (!extracted || !fs::exists(payload) || !copy_payload(payload, install_root, created, &landed)) {
                             rollback_files(created);
                             for (const auto& prior : installed_artifacts) rollback_files(prior);
                             fs::remove_all(staging);
@@ -654,13 +661,18 @@ bool LunarCore::commit_transaction(Transaction& txn) {
                             return false;
                         }
                         fs::remove_all(staging);
+                        file_index_.record(op.target().ns(), op.target().name(),
+                                           op.target().version().to_string(), landed);
+                        file_index_.save(data_dir_ + "/files.db");
                         installed_artifacts.push_back(std::move(created));
                     }
                 }
                 system_store_->install(op.target());
-                file_index_.record(op.target().ns(), op.target().name(),
-                                   op.target().version().to_string(), op.target().files());
-                file_index_.save(data_dir_ + "/files.db");
+                if (op.target().repository() == "local-artifact") {
+                    file_index_.record(op.target().ns(), op.target().name(),
+                                       op.target().version().to_string(), op.target().files());
+                    file_index_.save(data_dir_ + "/files.db");
+                }
                 extensions().trigger_hooks(HookType::PostInstall, txn);
                 break;
             }

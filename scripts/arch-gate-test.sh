@@ -148,6 +148,44 @@ else
 	echo "$Out"
 fi
 
+echo "== fixture: index follows disk not manifest"
+GhostDir="$Work/pkg-ghost"
+rm -rf "$GhostDir"
+mkdir -p "$GhostDir/rootfs/usr/bin"
+printf '#!/bin/sh
+echo ghost
+' > "$GhostDir/rootfs/usr/bin/ghost"
+chmod +x "$GhostDir/rootfs/usr/bin/ghost"
+{
+echo "name: ghost"
+echo "namespace: test"
+echo "version: 1.0"
+echo "architecture: x86_64"
+echo "installed_size: 1"
+echo "dependencies: []"
+echo "files:"
+echo "  - /usr/bin/ghost"
+echo "  - /usr/bin/never-shipped"
+} > "$GhostDir/meta.yaml"
+tar --zstd -cf "$Work/ghost.oaa" -C "$GhostDir" meta.yaml rootfs
+sha256sum "$Work/ghost.oaa" | awk '{print $1"  "$2}' > "$Work/ghost.oaa.sha256"
+RunInstall "$Work/ghost.oaa" > /dev/null
+Out="$(LUNAR_DATA_DIR="$Work/state" LUNAR_INSTALL_ROOT="$Work/root" "$Lunar" files test.ghost 2>&1 || true)"
+if echo "$Out" | grep -q "/usr/bin/ghost" && ! echo "$Out" | grep -q "never-shipped"; then
+Report ok "index records real files only"
+else
+Report fail "index records real files only"
+echo "$Out"
+fi
+
+Out="$(LUNAR_DATA_DIR="$Work/state" LUNAR_INSTALL_ROOT="$Work/root" "$Lunar" which /usr/bin/never-shipped 2>&1 || true)"
+if echo "$Out" | grep -qi "no package owns"; then
+Report ok "declared but absent file is not owned"
+else
+Report fail "declared but absent file is not owned"
+echo "$Out"
+fi
+
 echo "== fixture: file conflict"
 ClashDir="$Work/pkg-clash"
 rm -rf "$ClashDir"
