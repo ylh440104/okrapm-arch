@@ -163,7 +163,7 @@ Artifact::Artifact(std::string path)
     }
 }
 
-std::string Artifact::serialize() const {
+    std::string Artifact::serialize() const {
     std::string result = Object::serialize();
     result += "path=" + artifact_path_ + "\n";
     return result;

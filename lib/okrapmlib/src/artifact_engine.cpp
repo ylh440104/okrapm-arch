@@ -288,7 +288,7 @@ int ArtifactExtractor::execute_hook(const std::string& script_path,
     return std::system(cmd.c_str());
 }
 
-std::string ArtifactExtractor::calculate_sha256(const std::string& file_path) {
+    std::string ArtifactExtractor::calculate_sha256(const std::string& file_path) {
     if (!fs::exists(file_path)) return "";
     std::string cmd = "sha256sum \"" + file_path + "\" 2>/dev/null";
     std::string out = exec_command(cmd);

@@ -2,6 +2,7 @@
 
 #include "version.h"
 #include "object.h"
+#include "file_index.h"
 #include "object_ref.h"
 #include "collection.h"
 #include "operation.h"
@@ -102,18 +103,21 @@ public:
 
     // 数据目录
     const std::string& data_dir() const { return data_dir_; }
-    // 目标架构, 默认取当前主机
     const std::string& target_architecture() const { return target_arch_; }
     void set_target_architecture(const std::string& Arch) { target_arch_ = Arch; }
-    // 严格模式: 架构或 ABI 不匹配时拒绝安装
     bool strict_platform() const { return strict_platform_; }
     void set_strict_platform(bool Strict) { strict_platform_ = Strict; }
-    // 校验对象的架构与 ABI 是否可用于当前目标
     bool platform_compatible(const Object& obj, std::string& reason) const;
+    FileIndex& files() { return file_index_; }
+    const FileIndex& files() const { return file_index_; }
+    std::optional<Object> which(const std::string& Path) const;
+    std::vector<Object> provides(const std::string& Path) const;
+    std::vector<std::string> verify_files() const;
 private:
     std::string data_dir_;
     std::string target_arch_;
     bool strict_platform_{true};
+    FileIndex file_index_;
     std::unique_ptr<RepositoryManager> repo_mgr_;
     Resolver resolver_;
     std::unique_ptr<SystemStore> system_store_;

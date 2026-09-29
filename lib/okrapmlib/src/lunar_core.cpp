@@ -10,7 +10,7 @@
 namespace fs = std::filesystem;
 
 namespace {
-std::string shell_sha256(const std::string& path) {
+    std::string shell_sha256(const std::string& path) {
     std::string cmd = "sha256sum \"" + path + "\" 2>/dev/null";
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) return {};
@@ -90,6 +90,7 @@ LunarCore::LunarCore(const std::string& data_dir)
     repo_mgr_ = std::make_unique<RepositoryManager>(data_dir_ + "/repos");
     system_store_ = std::make_unique<SystemStore>(data_dir_ + "/system.db");
     snapshot_mgr_ = std::make_unique<SnapshotManager>(data_dir_ + "/snapshots");
+    file_index_.load(data_dir_ + "/files.db");
 
     resolver_.set_repository_manager(repo_mgr_.get());
     resolver_.set_installed_objects(system_store_->list_installed());
@@ -135,6 +136,53 @@ bool LunarCore::platform_compatible(const Object& obj, std::string& reason) cons
         return false;
     }
     return true;
+}
+std::optional<Object> LunarCore::which(const std::string& Path) const {
+    auto Owner = file_index_.owner_of(Path);
+    if (!Owner) return std::nullopt;
+    auto Found = system_store_->find(Owner->ns, Owner->name);
+    if (Found) return Found;
+    Object Placeholder(Owner->ns, Owner->name, Version::parse(Owner->version).value_or(Version{}));
+    Placeholder.set_description(Owner->path);
+    return Placeholder;
+}
+std::vector<Object> LunarCore::provides(const std::string& Path) const {
+    std::vector<Object> Result;
+    std::string Prefix = Path;
+    if (Prefix.find('*') != std::string::npos) {
+        Prefix = Prefix.substr(0, Prefix.find('*'));
+    }
+    auto Owners = Prefix.empty() ? std::vector<FileOwner>() : file_index_.owners_under(Prefix);
+    for (const auto& Owner : Owners) {
+        auto Found = system_store_->find(Owner.ns, Owner.name);
+        if (Found) {
+            Result.push_back(*Found);
+            continue;
+        }
+        Object Placeholder(Owner.ns, Owner.name, Version::parse(Owner.version).value_or(Version{}));
+        Result.push_back(Placeholder);
+    }
+    std::sort(Result.begin(), Result.end());
+    Result.erase(std::unique(Result.begin(), Result.end()), Result.end());
+    return Result;
+}
+std::vector<std::string> LunarCore::verify_files() const {
+    std::vector<std::string> Missing;
+    const char* Root = std::getenv("LUNAR_INSTALL_ROOT");
+    std::string Base = Root ? Root : "";
+    for (const auto& Name : file_index_.package_names()) {
+        auto Dot = Name.find('.');
+        std::string Ns = Dot == std::string::npos ? std::string() : Name.substr(0, Dot);
+        std::string PkgName = Dot == std::string::npos ? Name : Name.substr(Dot + 1);
+        for (const auto& Owner : file_index_.files_of(Ns, PkgName)) {
+            std::string Full = Base + Owner.path;
+            std::error_code Ec;
+            if (!fs::exists(Full, Ec) && !fs::is_symlink(Full, Ec)) {
+                Missing.push_back(Full);
+            }
+        }
+    }
+    return Missing;
 }
 LunarCore::InstallResult LunarCore::install(const std::vector<std::string>& refs, bool plan_only) {
     InstallResult res;
@@ -204,6 +252,11 @@ LunarCore::InstallResult LunarCore::install(const std::vector<std::string>& refs
         std::string Reason;
         if (!platform_compatible(op.target(), Reason)) {
             res.error_message = Reason;
+            return res;
+        }
+        auto Clashes = file_index_.conflicts(op.target().files(), op.target().ns(), op.target().name());
+        if (!Clashes.empty()) {
+            res.error_message = "file conflict: " + Clashes.front();
             return res;
         }
     }
@@ -605,6 +658,9 @@ bool LunarCore::commit_transaction(Transaction& txn) {
                     }
                 }
                 system_store_->install(op.target());
+                file_index_.record(op.target().ns(), op.target().name(),
+                                   op.target().version().to_string(), op.target().files());
+                file_index_.save(data_dir_ + "/files.db");
                 extensions().trigger_hooks(HookType::PostInstall, txn);
                 break;
             }
@@ -612,6 +668,8 @@ bool LunarCore::commit_transaction(Transaction& txn) {
             case OperationType::Purge:
                 extensions().trigger_hooks(HookType::PreRemove, txn);
                 system_store_->remove(op.target().ns(), op.target().name());
+                file_index_.forget(op.target().ns(), op.target().name());
+                file_index_.save(data_dir_ + "/files.db");
                 extensions().trigger_hooks(HookType::PostRemove, txn);
                 break;
         }

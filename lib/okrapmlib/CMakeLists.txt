@@ -1,6 +1,7 @@
 add_library(okrapmlib
     src/version.cpp
     src/platform.cpp
+    src/file_index.cpp
     src/object.cpp
     src/object_ref.cpp
     src/operation.cpp

@@ -54,10 +54,8 @@ public:
     // 描述
     const std::string& description() const { return description_; }
     void set_description(const std::string& desc) { description_ = desc; }
-    // 目标架构, 例如 x86_64 / aarch64, 空表示不限
     const std::string& architecture() const { return architecture_; }
     void set_architecture(const std::string& Arch) { architecture_ = Arch; }
-    // OAABI 合同名, 例如 OAABI1, 空表示不限
     const std::string& abi() const { return abi_; }
     void set_abi(const std::string& Abi) { abi_ = Abi; }
 
@@ -109,8 +107,8 @@ protected:
     ObjectState state_{ObjectState::Available};
     std::string repository_;    // 来源仓库
     std::string description_;   // 描述
-    std::string architecture_;  // 目标架构, 空表示不限
-    std::string abi_;           // OAABI 合同名, 空表示不限
+    std::string architecture_;
+    std::string abi_;
     size_t download_size_{1024 * 1024 * 15}; // 默认 15MB 估算
     size_t installed_size_{1024 * 1024 * 45}; // 默认 45MB 估算
     std::vector<std::string> dependencies_;  // 依赖列表

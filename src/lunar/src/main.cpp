@@ -57,6 +57,10 @@ void print_help() {
               << "  status                    Display current system state summary\n"
               << "  info <ref>                Show detailed object information\n"
               << "  members <#group>          Expand group and list its member packages\n"
+              << "  which <path>              Show which package owns a file\n"
+              << "  provides <path>           Show packages providing a path or prefix\n"
+              << "  files <ref>               List files recorded for an object\n"
+              << "  check                     Verify recorded files still exist\n"
               << "\n"
               << "System State & Transactions:\n"
               << "  transaction list          List recent transaction history\n"
@@ -537,6 +541,67 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (command == "which") {
+        if (raw_args.size() < 2) {
+            std::cerr << "Usage: lunar which <path>\n";
+            return 1;
+        }
+        auto obj = core.which(raw_args[1]);
+        if (!obj) {
+            std::cout << "No package owns " << raw_args[1] << "\n";
+            return 1;
+        }
+        std::cout << obj->ref_string() << "\n";
+        return 0;
+    }
+    if (command == "provides") {
+        if (raw_args.size() < 2) {
+            std::cerr << "Usage: lunar provides <path-or-prefix>\n";
+            return 1;
+        }
+        auto objects = core.provides(raw_args[1]);
+        if (objects.empty()) {
+            std::cout << "No package provides " << raw_args[1] << "\n";
+            return 1;
+        }
+        for (const auto& obj : objects) {
+            std::cout << obj.ref_string() << "\n";
+        }
+        return 0;
+    }
+    if (command == "files") {
+        if (raw_args.size() < 2) {
+            std::cerr << "Usage: lunar files <ref>\n";
+            return 1;
+        }
+        auto parsed = ObjectRef::parse(raw_args[1]);
+        if (!parsed) {
+            std::cerr << "Invalid object reference: " << raw_args[1] << "\n";
+            return 1;
+        }
+        auto owners = core.files().files_of(parsed->ns(), parsed->name());
+        if (owners.empty()) {
+            std::cout << "No recorded files for " << raw_args[1] << "\n";
+            return 1;
+        }
+        for (const auto& owner : owners) {
+            std::cout << owner.path << "\n";
+        }
+        return 0;
+    }
+    if (command == "check") {
+        auto missing = core.verify_files();
+        if (missing.empty()) {
+            std::cout << ":: all recorded files present (" << core.files().size() << " entries)\n";
+            return 0;
+        }
+        std::cout << "Missing files:\n";
+        for (const auto& path : missing) {
+            std::cout << "  " << path << "\n";
+        }
+        std::cerr << missing.size() << " missing file(s)\n";
+        return 1;
+    }
     // ---- Members (Group expand) ----
     if (command == "members") {
         if (raw_args.size() < 2) {
