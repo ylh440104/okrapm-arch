@@ -428,7 +428,7 @@ std::optional<SignatureRecord> ReadSignatureFile(const std::string& Path) {
         else if (Key == "sha256") Record.Sha256 = Value;
         else if (Key == "signature") Record.Signature = Value;
     }
-    if (Record.KeyId.empty() || Record.Signature.empty()) return std::nullopt;
+    if (Record.Signature.empty()) return std::nullopt;
     return Record;
 }
 

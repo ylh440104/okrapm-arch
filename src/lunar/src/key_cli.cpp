@@ -111,7 +111,7 @@ int KeySign(const std::vector<std::string>& Args) {
         return 1;
     }
     SignatureRecord Record;
-    if (!SignFile(File, *PrivateKey, "", Record)) {
+    if (!SignFile(File, *PrivateKey, Crypto::KeyIdFromPublic(*PrivateKey), Record)) {
         std::cerr << "Signing failed\n";
         return 1;
     }
