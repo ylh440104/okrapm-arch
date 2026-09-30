@@ -18,6 +18,19 @@ bool Crypto::Verify(const std::string&, const std::vector<unsigned char>&, const
 std::string Crypto::KeyIdFromPublic(const std::string&) { return {}; }
 }
 
+std::string CanonicalCertBytes(const KeyRecord&) { return {}; }
+std::string CanonicalSignatureBytes(const SignatureRecord&) { return {}; }
+bool WriteKeyFile(const std::string&, const std::string&, const std::string&) { return false; }
+std::optional<std::string> ReadKeyFile(const std::string&, const std::string&) { return std::nullopt; }
+bool WriteCertFile(const std::string&, const KeyRecord&) { return false; }
+std::optional<KeyRecord> ReadCertFile(const std::string&) { return std::nullopt; }
+bool WriteSignatureFile(const std::string&, const SignatureRecord&) { return false; }
+std::optional<SignatureRecord> ReadSignatureFile(const std::string&) { return std::nullopt; }
+bool CertifyDeveloper(const std::string&, const std::string&, const KeyRecord&, KeyRecord&) { return false; }
+bool VerifyCertification(const KeyRecord&, const std::string&) { return false; }
+bool SignFile(const std::string&, const std::string&, const std::string&, SignatureRecord&) { return false; }
+bool VerifyFileSignature(const std::string&, const SignatureRecord&, const std::string&) { return false; }
+
 #else
 
 #include <algorithm>
