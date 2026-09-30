@@ -16,7 +16,6 @@ std::optional<KeyPair> Crypto::Generate() { return std::nullopt; }
 std::optional<std::string> Crypto::Sign(const std::string&, const std::vector<unsigned char>&) { return std::nullopt; }
 bool Crypto::Verify(const std::string&, const std::vector<unsigned char>&, const std::string&) { return false; }
 std::string Crypto::KeyIdFromPublic(const std::string&) { return {}; }
-}
 
 std::string CanonicalCertBytes(const KeyRecord&) { return {}; }
 std::string CanonicalSignatureBytes(const SignatureRecord&) { return {}; }
@@ -30,6 +29,7 @@ bool CertifyDeveloper(const std::string&, const std::string&, const KeyRecord&, 
 bool VerifyCertification(const KeyRecord&, const std::string&) { return false; }
 bool SignFile(const std::string&, const std::string&, const std::string&, SignatureRecord&) { return false; }
 bool VerifyFileSignature(const std::string&, const SignatureRecord&, const std::string&) { return false; }
+}
 
 #else
 
