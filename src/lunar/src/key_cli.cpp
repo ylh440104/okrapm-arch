@@ -14,17 +14,54 @@ std::string FlagValue(const std::vector<std::string>& Args, const std::string& F
 }
 
 int KeyGenerate(const std::vector<std::string>& Args) {
+    std::string Type = FlagValue(Args, "--type");
     std::string PrivOut = FlagValue(Args, "--private");
     std::string PubOut = FlagValue(Args, "--public");
+    std::string MasterKey = FlagValue(Args, "--master-key");
+    std::string Name = FlagValue(Args, "--name");
+    std::string CertOut = FlagValue(Args, "--cert");
     std::string OldKind = FlagValue(Args, "--kind");
     std::string OldOut = FlagValue(Args, "--out");
     if (!OldOut.empty() && PrivOut.empty() && PubOut.empty()) {
         if (OldKind == "public") PubOut = OldOut;
         else PrivOut = OldOut;
     }
+    if (Type.empty()) {
+        if (MasterKey.empty()) {
+            Type = "master";
+        } else {
+            Type = "developer";
+        }
+    }
     if (PrivOut.empty() && PubOut.empty()) {
-        std::cerr << "Usage: lunar key generate --private <path> --public <path>\n";
+        if (Type == "master") {
+            std::cerr << "Usage: lunar key generate --type master --private <path> --public <path>\n";
+        } else {
+            std::cerr << "Usage: lunar key generate --type developer --master-key <path> --name <n> --private <path> --public <path> --cert <path>\n";
+        }
         return 1;
+    }
+    if (Type == "developer") {
+        if (MasterKey.empty()) {
+            std::cerr << "Developer key generation requires --master-key\n";
+            return 1;
+        }
+        if (Name.empty()) {
+            std::cerr << "Developer key generation requires --name\n";
+            return 1;
+        }
+        if (CertOut.empty()) {
+            std::cerr << "Developer key generation requires --cert\n";
+            return 1;
+        }
+    }
+    auto MasterPriv = std::optional<std::string>{};
+    if (Type == "developer") {
+        MasterPriv = ReadKeyFile(MasterKey, "private");
+        if (!MasterPriv) {
+            std::cerr << "Cannot read master key: " << MasterKey << "\n";
+            return 1;
+        }
     }
     auto Pair = Crypto::Generate();
     if (!Pair) {
@@ -44,6 +81,26 @@ int KeyGenerate(const std::vector<std::string>& Args) {
         }
     }
     std::cout << "KeyId: " << Pair->KeyId << "\n";
+    if (Type == "developer") {
+        KeyRecord Record;
+        Record.PublicKey = Pair->PublicKey;
+        Record.KeyId = Pair->KeyId;
+        Record.Name = Name;
+        Record.Issued = Crypto::NowStamp();
+        Record.Expires = "";
+        KeyRecord Signed;
+        if (!CertifyDeveloper(*MasterPriv, Pair->KeyId, Record, Signed)) {
+            std::cerr << "Certification failed\n";
+            return 1;
+        }
+        Signed.CertifierId = "";
+        if (!WriteCertFile(CertOut, Signed)) {
+            std::cerr << "Cannot write certificate: " << CertOut << "\n";
+            return 1;
+        }
+        std::cout << "Certified by master key\n";
+        std::cout << "Certificate: " << CertOut << "\n";
+    }
     return 0;
 }
 
@@ -206,7 +263,9 @@ int okrapm::RunKeyCommand(const std::vector<std::string>& Args) {
     if (Sub == "certify") return KeyCertify(Args);
     if (Sub == "sign") return KeySign(Args);
     if (Sub == "verify") return KeyVerify(Args);
-    std::cerr << "Usage: lunar key <generate|id|certify|sign|verify>\n";
+    std::cerr << "Usage: lunar key <generate|id|certify|sign|verify>\n"
+        std::cerr << "  generate --type master --private <p> --public <p>\n"
+        std::cerr << "  generate --type developer --master-key <p> --name <n> --private <p> --public <p> --cert <p>\n";
     return 1;
 }
 

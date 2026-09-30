@@ -30,7 +30,7 @@ Cert="$Work/dev.cert"
 Payload="$Work/payload.txt"
 Sig="$Work/payload.txt.sig"
 
-"$Lunar" key generate --private "$MasterKey" --public "$MasterPub" > /dev/null
+"$Lunar" key generate --type master --private "$MasterKey" --public "$MasterPub" > /dev/null
 MasterId="$("$Lunar" key id --key "$MasterPub" 2>/dev/null || echo master)"
 
 {
@@ -52,17 +52,16 @@ else
 	echo "$Out"
 fi
 
-"$Lunar" key generate --private "$DevKey" --public "$DevPub" > /dev/null
+"$Lunar" key generate --type developer --master-key "$MasterKey" --name alice --private "$DevKey" --public "$DevPub" --cert "$Cert" > /dev/null 2>&1 || true
 
-Out="$("$Lunar" key certify --master "$MasterKey" --developer "$DevPub" --name alice --out "$Cert" 2>&1 || true)"
 if [ -f "$Cert" ] && grep -q "signature:" "$Cert"; then
 	Report ok "developer certificate created"
 else
 	Report fail "developer certificate created"
-	echo "$Out"
+	echo "cert generation may have failed"
 fi
 
-sed -i "s/^certifier:.*/certifier: $MasterId/" "$Cert"
+sed -i "s/^certifier:.*/certifier: $MasterId/" "$Cert" 2>/dev/null || true
 "$Lunar" keyring add --keyring "$Ring" --cert "$Cert" > /dev/null 2>&1 || true
 if grep -q "alice" "$Ring"; then
 	Report ok "certified developer accepted"
@@ -70,7 +69,7 @@ else
 	Report fail "certified developer accepted"
 fi
 
-"$Lunar" key generate --private "$Work/rogue.key" --public "$Work/rogue.pub" > /dev/null
+"$Lunar" key generate --type master --private "$Work/rogue.key" --public "$Work/rogue.pub" > /dev/null
 {
 	echo "keyid: rogueid"
 	echo "role: developer"
@@ -123,7 +122,7 @@ else
 	Report fail "forged signature rejected"
 fi
 
-"$Lunar" key generate --private "$Work/other.key" --public "$Work/other.pub" > /dev/null
+"$Lunar" key generate --type master --private "$Work/other.key" --public "$Work/other.pub" > /dev/null
 "$Lunar" key sign --key "$Work/other.key" --file "$Payload" --out "$Work/other.sig" > /dev/null 2>&1 || true
 Out="$("$Lunar" key verify --keyring "$Ring" --file "$Payload" --sig "$Work/other.sig" 2>&1 || true)"
 if echo "$Out" | grep -qi "verification failed"; then
