@@ -29,6 +29,7 @@ std::string Crypto::KeyIdFromPublic(const std::string&) { return {}; }
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include <openssl/evp.h>
 
 namespace fs = std::filesystem;
 
@@ -216,29 +217,53 @@ bool Crypto::Verify(const std::string& PublicKey,
 
 std::string Crypto::KeyIdFromPublic(const std::string& PublicKey) {
     std::vector<unsigned char> Data(PublicKey.begin(), PublicKey.end());
-    return Sha256Hex(Data).substr(0, 16);
+    std::vector<unsigned char> Hash(SHA512_DIGEST_LENGTH);
+    for (int Round = 0; Round < 10000; ++Round) {
+        SHA512(Data.data(), Data.size(), Hash.data());
+        Data = Hash;
+    }
+    static const char Hex[] = "0123456789abcdef";
+    std::string Result;
+    for (int i = 0; i < 8; ++i) {
+        Result += Hex[(Hash[i] >> 4) & 0x0F];
+        Result += Hex[Hash[i] & 0x0F];
+    }
+    return Result;
 }
 
 bool Keyring::load(const std::string& Path) {
     Records_.clear();
     std::ifstream Input(Path);
     if (!Input.is_open()) return false;
+    KeyRecord Current;
+    bool HasRecord = false;
     std::string Line;
     while (std::getline(Input, Line)) {
         Line = Trim(Line);
+        if (Line == "---") {
+            if (HasRecord && !Current.PublicKey.empty()) {
+                Records_.push_back(Current);
+            }
+            Current = KeyRecord();
+            HasRecord = false;
+            continue;
+        }
         if (Line.empty() || Line[0] == '#') continue;
-        auto Fields = Split(Line, '\t');
-        if (Fields.size() < 7) continue;
-        KeyRecord Record;
-        Record.KeyId = Fields[0];
-        Record.Role = Fields[1];
-        Record.Name = Fields[2];
-        Record.PublicKey = Fields[3];
-        Record.Issued = Fields[4];
-        Record.Expires = Fields[5];
-        Record.CertifierId = Fields[6];
-        if (Fields.size() > 7) Record.Signature = Fields[7];
-        Records_.push_back(Record);
+        auto Colon = Line.find(':');
+        if (Colon == std::string::npos) continue;
+        std::string Key = Trim(Line.substr(0, Colon));
+        std::string Value = Trim(Line.substr(Colon + 1));
+        if (Key == "keyid") { Current.KeyId = Value; HasRecord = true; }
+        else if (Key == "role") Current.Role = Value;
+        else if (Key == "name") Current.Name = Value;
+        else if (Key == "public") Current.PublicKey = Value;
+        else if (Key == "issued") Current.Issued = Value;
+        else if (Key == "expires") Current.Expires = Value;
+        else if (Key == "certifier") Current.CertifierId = Value;
+        else if (Key == "signature") Current.Signature = Value;
+    }
+    if (HasRecord && !Current.PublicKey.empty()) {
+        Records_.push_back(Current);
     }
     return true;
 }
@@ -251,16 +276,16 @@ bool Keyring::save(const std::string& Path) const {
     }
     std::ofstream Output(Path);
     if (!Output.is_open()) return false;
-    Output << "# Lunar keyring\n";
     for (const auto& Record : Records_) {
-        Output << Record.KeyId << '\t'
-               << Record.Role << '\t'
-               << Record.Name << '\t'
-               << Record.PublicKey << '\t'
-               << Record.Issued << '\t'
-               << Record.Expires << '\t'
-               << Record.CertifierId << '\t'
-               << Record.Signature << '\n';
+        Output << "keyid: " << Record.KeyId << "\n"
+               << "role: " << Record.Role << "\n"
+               << "name: " << Record.Name << "\n"
+               << "public: " << Record.PublicKey << "\n"
+               << "issued: " << Record.Issued << "\n"
+               << "expires: " << Record.Expires << "\n"
+               << "certifier: " << Record.CertifierId << "\n"
+               << "signature: " << Record.Signature << "\n"
+               << "---\n";
     }
     return true;
 }
