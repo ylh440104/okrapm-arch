@@ -264,8 +264,8 @@ int okrapm::RunKeyCommand(const std::vector<std::string>& Args) {
     if (Sub == "sign") return KeySign(Args);
     if (Sub == "verify") return KeyVerify(Args);
     std::cerr << "Usage: lunar key <generate|id|certify|sign|verify>\n"
-        std::cerr << "  generate --type master --private <p> --public <p>\n"
-        std::cerr << "  generate --type developer --master-key <p> --name <n> --private <p> --public <p> --cert <p>\n";
+              << "  generate --type master --private <p> --public <p>\n"
+              << "  generate --type developer --master-key <p> --name <n> --private <p> --public <p> --cert <p>\n";
     return 1;
 }
 
