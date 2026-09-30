@@ -4,15 +4,10 @@ if(OKRAPM_WITH_CRYPTO)
     find_package(OpenSSL REQUIRED)
 endif()
 
-if(OKRAPM_WITH_CRYPTO)
-    set(CRYPTO_SRC src/crypto.cpp)
-else()
-    set(CRYPTO_SRC)
-endif()
-
 add_library(okrapmlib
     src/version.cpp
     src/platform.cpp
+    src/crypto.cpp
     src/file_index.cpp
     src/object.cpp
     src/object_ref.cpp
@@ -27,7 +22,6 @@ add_library(okrapmlib
     src/network_downloader.cpp
     src/pipeline_engine.cpp
     src/lunar_core.cpp
-    ${CRYPTO_SRC}
 )
 
 target_include_directories(okrapmlib
@@ -46,6 +40,7 @@ else()
         PUBLIC
             ${CMAKE_DL_LIBS}
     )
+    target_compile_definitions(okrapmlib PUBLIC OKRAPM_WITH_CRYPTO=0)
 endif()
 
 target_compile_features(okrapmlib PUBLIC cxx_std_17)

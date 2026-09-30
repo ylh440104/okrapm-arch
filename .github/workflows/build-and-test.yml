@@ -29,7 +29,6 @@ jobs:
             cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
               -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-              -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu \
               -DOKRAPM_WITH_CRYPTO=OFF
           else
             cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
