@@ -10,6 +10,11 @@
 #include "okrapmlib/pipeline_engine.h"
 #include "okrapmlib/crypto.h"
 #include "key_cli.h"
+#ifdef OKRAPM_WITH_CRYPTO
+#if OKRAPM_WITH_CRYPTO
+#define OKRAPM_HAS_KEY_CLI 1
+#endif
+#endif
 
 using namespace okrapm;
 
@@ -615,10 +620,20 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     if (command == "key") {
+#ifdef OKRAPM_HAS_KEY_CLI
         return okrapm::RunKeyCommand(raw_args);
+#else
+        std::cerr << "Key management not available (crypto disabled)\n";
+        return 1;
+#endif
     }
     if (command == "keyring") {
+#ifdef OKRAPM_HAS_KEY_CLI
         return okrapm::RunKeyringCommand(raw_args);
+#else
+        std::cerr << "Keyring not available (crypto disabled)\n";
+        return 1;
+#endif
     }
     // ---- Members (Group expand) ----
     if (command == "members") {
