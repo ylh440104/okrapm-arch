@@ -30,6 +30,7 @@ target_include_directories(okrapmlib
 )
 
 if(OKRAPM_WITH_CRYPTO)
+    target_compile_definitions(okrapmlib PUBLIC OKRAPM_WITH_CRYPTO=1)
     target_link_libraries(okrapmlib
         PUBLIC
             ${CMAKE_DL_LIBS}
